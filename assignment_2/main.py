@@ -1,9 +1,9 @@
+import sys
 import requests
 from bs4 import BeautifulSoup
-import re
 
 
-def search_artist_biography(artist_name: str) -> dict[str, str]:
+def get_artist_biography(artist_name: str) -> str:
     """
     Scrape biography summary for a given artist
 
@@ -11,62 +11,43 @@ def search_artist_biography(artist_name: str) -> dict[str, str]:
         artist_name (str): Name of the artist to search
 
     Returns:
-        dict: Biography summary information
+        str: Biography summary
     """
-    encoded_name = artist_name.replace(" ", "_")
+    # Step 1: Search for the artist
+    search_url = f"https://musicbrainz.org/ws/2/artist/?query={artist_name}&fmt=json"
+    search_response = requests.get(search_url)
+    search_data = search_response.json()
 
-    url = f"https://en.wikipedia.org/wiki/{encoded_name}"
+    # Check if artists were found
+    if search_data["artists"]:
+        # Get the best result
+        artist_id = search_data["artists"][0]["id"]
 
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers)
+        # Step 2: Get the artist's page
+        artist_url = f"https://musicbrainz.org/artist/{artist_id}"
+        artist_page_response = requests.get(artist_url)
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, "html.parser")
+        # Step 3: Parse the artist's page HTML
+        soup = BeautifulSoup(artist_page_response.content, "html.parser")
 
-            biography = {}
+        # Step 4: Find the biography section
+        biography_div = soup.find(
+            "div", class_="wikipedia-extract-body wikipedia-extract-collapse"
+        )
 
-            summary_paragraphs = soup.select(".mw-parser-output > p")
-            summary_text = " ".join(
-                [p.get_text().strip() for p in summary_paragraphs[:2]]
-            )
-
-            summary_text = re.sub(r"\[.*?\]", "", summary_text)
-            summary_text = re.sub(r"\s+", " ", summary_text)
-
-            biography["summary"] = summary_text
-
-            infobox = soup.select_one(".infobox")
-            if infobox:
-                birth_row = infobox.find("th", string=re.compile(r"Born"))
-                if birth_row:
-                    biography["birth_details"] = (
-                        birth_row.find_next("td").get_text().strip()
-                    )
-
-            return biography
-
+        # Get the text from p tag
+        if biography_div:
+            bio = [p.get_text() for p in biography_div.find_all("p")]
+            biography = " ".join(bio)
+            return biography.strip()
         else:
-            print(f"Failed to retrieve page. Status code: {response.status_code}")
-            return None
-
-    except requests.RequestException as e:
-        print(f"Error occurred: {e}")
-        return None
+            return "Biography not available."
+    else:
+        return "Artist not found."
 
 
 artist_name = input("Enter the name of the artist: ")
-artist_name = " ".join(map(lambda x: x.capitalize(), artist_name.split(" ")))
 
-biography = search_artist_biography(artist_name)
+biography = get_artist_biography(artist_name)
 
-if biography:
-    print("\n--- Artist Biography Summary ---")
-
-    if "summary" in biography:
-        print("\nSummary:")
-        print(biography["summary"].strip())
-else:
-    print("Could not find biography information.")
+print(biography)
