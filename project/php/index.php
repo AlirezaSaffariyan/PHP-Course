@@ -25,12 +25,6 @@ $endpoints = [
         'icon' => '🎵',
         'color' => '#45b7d1'
     ],
-    // 'Song Artists' => [
-    //     'link' => './song-artists/index.php',
-    //     'description' => 'Link artists to specific songs',
-    //     'icon' => '🤝',
-    //     'color' => '#ff8c42'
-    // ]
 ];
 ?>
 <!DOCTYPE html>
